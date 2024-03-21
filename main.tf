@@ -16,7 +16,7 @@ provider "aws" {
 resource "aws_vpc" "my-vpc" {
   cidr_block = "10.0.0.0/16"
   tags = {
-    Name = "project-VPC"
+    Name = "Project1-VPC"
   }
 }
 
@@ -24,7 +24,7 @@ resource "aws_vpc" "my-vpc" {
 resource "aws_subnet" "web-subnet-1" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-sputh-1a"
+  availability_zone       = "ap-south-1a"
   map_public_ip_on_launch = true
 
   tags = {
@@ -38,7 +38,7 @@ resource "aws_subnet" "web-subnet-2" {
   availability_zone       = "ap-south-1b"
   map_public_ip_on_launch = true
  tags = {
-    Name = "Web-2a"
+    Name = "Web-lb"
   }
 }
 
@@ -60,10 +60,9 @@ resource "aws_subnet" "application-subnet-2" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.12.0/24"
   availability_zone       = "ap-south-1b"
-  map_public_ip_on_launch = false
 
   tags = {
-    Name = "Application-2b"
+    Name = "Application-lb"
   }
 }
 
@@ -84,7 +83,7 @@ resource "aws_subnet" "database-subnet-2" {
   availability_zone = "ap-south-1b"
 
   tags = {
-    Name = "Database-2b"
+    Name = "Database-lb"
   }
 }
 
@@ -103,7 +102,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.my-vpc.id
 
   tags = {
-    Name = "PROJECT-IGW"
+    Name = "Project1-IGW"
   }
 }
 
@@ -137,25 +136,14 @@ resource "aws_route_table_association" "b" {
 resource "aws_instance" "webserver1" {
   ami                    = "ami-02d7fd1c2af6eead0"
   instance_type          = "t2.micro"
-  availability_zone      = "ap-south--1a"
+  availability_zone      = "ap-south-1a"
   key_name               = "1"
   vpc_security_group_ids = [aws_security_group.webserver-sg.id]
   subnet_id              = aws_subnet.web-subnet-1.id
-  user_data              = file("install_apache.sh")
+  user_data              = "${file("apache.sh")}"
 
   tags = {
     Name = "Web Server"
-  }
-
-  provisioner "file" {
-    source      = "/var/lib/jenkins/workspace/terraformpipeline/index.html"
-    destination = "/var/www/html/index.html"
-
-  connection {
-      type        = "ssh"
-      host        = self.public_ip
-      user        = "ec2-user"
-    }
   }
 }
 
@@ -166,23 +154,62 @@ resource "aws_instance" "webserver2" {
   key_name               = "1"
   vpc_security_group_ids = [aws_security_group.webserver-sg.id]
   subnet_id              = aws_subnet.web-subnet-2.id
-  user_data              = file("install_apache.sh")
+  user_data              = "${file("apache.sh")}"
 
   tags = {
     Name = "Web Server"
   }
+}
 
-  provisioner "file" {
-    source      = "/var/lib/jenkins/workspace/terraformpipeline/index.html"
-    destination = "/var/www/html/index.html"
-
-   connection {
-      type        = "ssh"
-      host        = self.public_ip
-      user        = "ec2-user"
-    }
+#Create EC2 Instance
+resource "aws_instance" "appserver1" {
+  ami                    = "ami-02d7fd1c2af6eead0"
+  instance_type          = "t2.micro"
+  availability_zone      = "ap-south-1a"
+  key_name               = "1"
+  vpc_security_group_ids = [aws_security_group.appserver-sg.id]
+  subnet_id              = aws_subnet.application-subnet-1.id
+  tags = {
+    Name = "App Server-1"
   }
 }
+
+resource "aws_instance" "appserver2" {
+  ami                    = "ami-02d7fd1c2af6eead0"
+  instance_type          = "t2.micro"
+  availability_zone      = "ap-south-1b"
+  key_name               = "1"
+  vpc_security_group_ids = [aws_security_group.appserver-sg.id]
+  subnet_id              = aws_subnet.application-subnet-2.id
+
+  tags = {
+    Name = "App Server-2"
+  }
+}
+
+resource "aws_db_instance" "default" {
+  allocated_storage      = 10
+  db_subnet_group_name   = aws_db_subnet_group.default.id
+  engine                 = "mysql"
+  engine_version         = "8.0.28"
+  instance_class         = "db.t2.micro"
+  multi_az               = false
+  db_name                = "mydb"
+  username               = "raham"
+  password               = "Rahamshaik#444555"
+  skip_final_snapshot    = true
+  vpc_security_group_ids = [aws_security_group.database-sg.id]
+}
+
+resource "aws_db_subnet_group" "default" {
+  name       = "main"
+  subnet_ids = [aws_subnet.database-subnet-1.id, aws_subnet.database-subnet-2.id]
+
+  tags = {
+    Name = "My DB subnet group"
+  }
+}
+
 
 # Create Web Security Group
 resource "aws_security_group" "webserver-sg" {
@@ -225,8 +252,8 @@ resource "aws_security_group" "appserver-sg" {
 
   ingress {
     description     = "Allow traffic from web layer"
-    from_port       = 80
-    to_port         = 80
+    from_port       = 8080
+    to_port         = 8080
     protocol        = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -247,7 +274,7 @@ resource "aws_security_group" "appserver-sg" {
   }
 
   tags = {
-    Name = "appserver-SG"
+    Name = "Appserver-SG"
   }
 }
 
@@ -323,32 +350,35 @@ resource "aws_lb_listener" "external-elb" {
   }
 }
 
-/*resource "aws_db_instance" "default" {
-  allocated_storage      = 10
-  db_subnet_group_name   = aws_db_subnet_group.default.id
-  engine                 = "mysql"
-  engine_version         = "8.0.28"
-  instance_class         = "db.t2.micro"
-  multi_az               = false
-  db_name                = "mydb"
-  username               = "raham"
-  password               = "Rahamshaik#444555"
-  skip_final_snapshot    = true
-  vpc_security_group_ids = [aws_security_group.database-sg.id]
-}
 
-resource "aws_db_subnet_group" "default" {
-  name       = "main"
-  subnet_ids = [aws_subnet.database-subnet-1.id, aws_subnet.database-subnet-2.id]
 
-  tags = {
-    Name = "My DB subnet group"
-  }
-}
-*/
 
 output "lb_dns_name" {
   description = "The DNS name of the load balancer"
   value       = aws_lb.external-elb.dns_name
 }
-          
+
+
+resource "aws_s3_bucket" "my_bucket" {
+  bucket = "project1bkt"  
+
+  acl    = "private"  
+  versioning {
+    enabled = true 
+  }
+}
+
+resource "aws_iam_user" "one" {
+for_each = var.iam_users
+name = each.value
+}
+
+variable "iam_users" {
+description = ""
+type = set(string)
+default = ["user1", "user2", "user3", "user4"]
+}
+
+resource "aws_iam_group" "two" {
+name = "project1"
+}
