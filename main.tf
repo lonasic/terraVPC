@@ -106,7 +106,7 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# Create Web layber route table
+# Create Web layer route table
 resource "aws_route_table" "web-rt" {
   vpc_id = aws_vpc.my-vpc.id
 
@@ -134,10 +134,10 @@ resource "aws_route_table_association" "b" {
 
 #Create EC2 Instance
 resource "aws_instance" "webserver1" {
-  ami                    = "ami-02d7fd1c2af6eead0"
+  ami                    = "ami-08ebc9e780cde07dd"
   instance_type          = "t2.micro"
   availability_zone      = "ap-south-1a"
-  key_name               = "1"
+  key_name               = "1YM"
   vpc_security_group_ids = [aws_security_group.webserver-sg.id]
   subnet_id              = aws_subnet.web-subnet-1.id
   user_data              = "${file("apache.sh")}"
@@ -148,10 +148,10 @@ resource "aws_instance" "webserver1" {
 }
 
 resource "aws_instance" "webserver2" {
-  ami                    = "ami-02d7fd1c2af6eead0"
+  ami                    = "ami-08ebc9e780cde07dd"
   instance_type          = "t2.micro"
   availability_zone      = "ap-south-1b"
-  key_name               = "1"
+  key_name               = "1YM"
   vpc_security_group_ids = [aws_security_group.webserver-sg.id]
   subnet_id              = aws_subnet.web-subnet-2.id
   user_data              = "${file("apache.sh")}"
@@ -163,7 +163,7 @@ resource "aws_instance" "webserver2" {
 
 #Create EC2 Instance
 resource "aws_instance" "appserver1" {
-  ami                    = "ami-02d7fd1c2af6eead0"
+  ami                    = "ami-08ebc9e780cde07dd"
   instance_type          = "t2.micro"
   availability_zone      = "ap-south-1a"
   key_name               = "1"
@@ -175,7 +175,7 @@ resource "aws_instance" "appserver1" {
 }
 
 resource "aws_instance" "appserver2" {
-  ami                    = "ami-02d7fd1c2af6eead0"
+  ami                    = "ami-08ebc9e780cde07dd"
   instance_type          = "t2.micro"
   availability_zone      = "ap-south-1b"
   key_name               = "1"
